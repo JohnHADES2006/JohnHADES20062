@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulador Nutricional Avanzado</title>
+    <style>
+        body { background: #f4f8fb; font-family: Arial, sans-serif; margin: 0; color: #222;}
+        .container { max-width: 900px; margin: 40px auto; padding: 30px; background: #fff; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.11);}
+        h1 { text-align: center; margin-bottom: 1.5em; }
+        form { display: flex; flex-wrap: wrap; gap: 1em; justify-content: center;}
+        label { width: 100%; }
+        input, select { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #bbb;}
+        .results, .menu-semana { margin-top: 2em; }
+        .cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 1em; }
+        .card { background: #f7f7fa; border-radius: 7px; padding: 1em; box-shadow: 0 1px 6px rgba(0,0,0,.04);}
+        .dias { font-weight: bold; text-align: center; }
+        .objetivo { background: #e8f4fc; padding: .7em 1em; border-radius: 5px; margin-bottom: 1em;}
+        @media (max-width: 700px) {
+            .cards { grid-template-columns: 1fr;}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simulador Nutricional Semanal Personalizado</h1>
+        <form id="nutriForm" onsubmit="return false;">
+            <label>
+                Edad:
+                <input type="number" id="edad" min="10" max="90" required>
+            </label>
+            <label>
+                Sexo:
+                <select id="sexo" required>
+                    <option value="hombre">Hombre</option>
+                    <option value="mujer">Mujer</option>
+                </select>
+            </label>
+            <label>
+                Altura (cm):
+                <input type="number" id="altura" min="100" max="230" required>
+            </label>
+            <label>
+                Peso actual (kg):
+                <input type="number" id="peso" min="30" max="200" required>
+            </label>
+            <label>
+                Actividad física:
+                <select id="actividad" required>
+                    <option value="sedentario">Sedentario</option>
+                    <option value="ligero">Ligero (1-3 días/sem)</option>
+                    <option value="moderado">Moderado (3-5 días/sem)</option>
+                    <option value="intenso">Intenso (6-7 días/sem)</option>
+                </select>
+            </label>
+            <label>
+                ¿Qué quieres conseguir?
+                <select id="objetivo" required>
+                    <option value="bajar">Bajar de peso</option>
+                    <option value="mantener">Mantener peso</option>
+                    <option value="subir">Subir masa muscular</option>
+                </select>
+            </label>
+            <div style="width:100%; text-align:center;">
+                <button type="submit" onclick="calcular()">Calcular</button>
+            </div>
+        </form>
+        <div class="results" id="results" style="display:none;">
+            <h2>Resultados personalizados:</h2>
+            <div class="objetivo"><strong>Objetivo del usuario:</strong> <span id="objetivoTexto"></span></div>
+            <ul>
+                <li><strong>Peso ideal estimado:</strong> <span id="pesoIdeal"></span> kg</li>
+                <li><strong>Calorías diarias recomendadas:</strong> <span id="calorias"></span> kcal</li>
+                <li><strong>Proteína diaria:</strong> <span id="proteina"></span> g</li>
+                <li><strong>Carbohidratos diarios:</strong> <span id="carbohidratos"></span> g</li>
+            </ul>
+        </div>
+        <div class="menu-semana" id="menuSemana" style="display:none;">
+            <h2>Menú semanal sugerido</h2>
+            <div class="cards" id="menuCards"></div>
+        </div>
+    </div>
+    <script>
+        // Platos base
+        const platos = {
+            desayuno: [
+                "Avena con plátano y nueces",
+                "Tostadas integrales con aguacate y huevo",
+                "Yogur con frutos rojos y granola",
+                "Omelette de espinaca y tomate",
+                "Pan integral con pavo y queso fresco",
+                "Smoothie de frutas y semillas",
+                "Arepa integral con queso bajo en grasa"
+            ],
+            almuerzo: [
+                "Pollo asado con arroz integral y ensalada",
+                "Salmón a la plancha con quinoa y verduras",
+                "Ensalada de atún con legumbres",
+                "Ternera guisada con patatas y zanahoria",
+                "Pasta integral con tomate y pollo",
+                "Lentejas estofadas con verduras",
+                "Pescado al horno con batata y brócoli"
+            ],
+            cena: [
+                "Tortilla de verduras y ensalada",
+                "Sopa de verduras y pechuga de pollo",
+                "Ensalada de garbanzos y tomate",
+                "Queso fresco con tomate y nueces",
+                "Verduras salteadas con huevo",
+                "Pechuga de pavo con puré de calabaza",
+                "Crema de calabacín y atún"
+            ]
+        };
+
+        // Menú alternativo para "subir masa muscular" (más proteínas y calorías)
+        const platosSubir = {
+            desayuno: [
+                "Pan integral con mantequilla de cacahuete y plátano",
+                "Tortilla de 3 huevos y avena con frutos secos",
+                "Yogur griego con granola, miel y semillas",
+                "Batido de proteína con fruta y tostadas",
+                "Tostadas con queso cottage y pechuga de pavo",
+                "Pancakes integrales con frutos rojos",
+                "Gachas de avena con leche y nueces"
+            ],
+            almuerzo: [
+                "Pechuga de pollo a la plancha con pasta integral y verduras",
+                "Ternera salteada con arroz y brócoli",
+                "Salmón al horno con batata y ensalada",
+                "Bowl de quinoa, huevo y garbanzos",
+                "Pasta con atún, tomate y aceite de oliva",
+                "Lentejas con arroz y huevo",
+                "Burrito de pollo, arroz y frijoles"
+            ],
+            cena: [
+                "Tortilla de atún y espinaca con pan integral",
+                "Wok de pollo y verduras con arroz",
+                "Ensalada de garbanzos con huevo y aguacate",
+                "Pavo a la plancha con puré de papas",
+                "Tofu salteado con verduras y quínoa",
+                "Sándwich de pollo, tomate y espinaca",
+                "Salmón ahumado con queso fresco y pan integral"
+            ]
+        };
+
+        // Menú alternativo para "bajar de peso" (menos calorías, más verduras)
+        const platosBajar = {
+            desayuno: [
+                "Yogur descremado con manzana y chía",
+                "Tostadas integrales con tomate y pavo bajo en grasa",
+                "Avena con frutos rojos y semillas",
+                "Batido verde de espinaca, pepino y manzana",
+                "Tortilla de claras y tomate",
+                "Queso fresco con fruta",
+                "Café con leche descremada y fruta"
+            ],
+            almuerzo: [
+                "Pollo a la plancha con ensalada variada",
+                "Merluza al vapor con verduras",
+                "Ensalada de atún y legumbres",
+                "Pechuga de pavo con brócoli y zanahoria",
+                "Tortilla de verduras y ensalada",
+                "Sopa de verduras y carne magra",
+                "Ensalada de pollo, tomate y espinaca"
+            ],
+            cena: [
+                "Crema de verduras y huevo duro",
+                "Sopa ligera de pollo y verduras",
+                "Ensalada de garbanzos y tomate",
+                "Queso fresco con tomate y nueces",
+                "Verduras al vapor con pescado blanco",
+                "Pechuga de pavo con ensalada",
+                "Tortilla francesa con espinaca"
+            ]
+        };
+
+        // Textos de objetivos
+        const objetivoTextos = {
+            bajar: 'Bajar de peso - Déficit calórico moderado y más verduras.',
+            mantener: 'Mantener peso - Alimentación equilibrada y ajustada a tus necesidades.',
+            subir: 'Subir masa muscular - Superávit calórico y más proteínas.'
+        };
+
+        function calcularPesoIdeal(altura, sexo) {
+            // Fórmula de Lorentz (orientativo)
+            if (sexo === 'hombre') return Math.round((altura - 100) - ((altura - 150)/4));
+            else return Math.round((altura - 100) - ((altura - 150)/2.5));
+        }
+
+        function getFactorActividad(nivel) {
+            switch(nivel) {
+                case "sedentario": return 1.2;
+                case "ligero": return 1.375;
+                case "moderado": return 1.55;
+                case "intenso": return 1.725;
+            }
+        }
+
+        function calcularCalorias(peso, altura, edad, sexo, actividad, objetivo) {
+            // Fórmula Harris-Benedict
+            let tmb;
+            if (sexo === 'hombre') {
+                tmb = 88.36 + (13.4 * peso) + (4.8 * altura) - (5.7 * edad);
+            } else {
+                tmb = 447.6 + (9.2 * peso) + (3.1 * altura) - (4.3 * edad);
+            }
+            let calorias = tmb * getFactorActividad(actividad);
+            // Ajustes según objetivo
+            if (objetivo === "bajar") calorias -= 400; // Déficit calórico
+            if (objetivo === "subir") calorias += 350; // Superávit calórico
+            return Math.round(Math.max(calorias, 1200));
+        }
+
+        function calcularProteina(pesoIdeal, objetivo) {
+            // 1.2g por kg para bajar, 1.5g para mantener, 2g para subir masa muscular
+            if (objetivo === "bajar") return Math.round(pesoIdeal * 1.2);
+            if (objetivo === "mantener") return Math.round(pesoIdeal * 1.5);
+            return Math.round(pesoIdeal * 2);
+        }
+
+        function calcularCarbohidratos(calorias, objetivo) {
+            // Menos % calorías de carbos para bajar (40%), normal para mantener (50%), más para subir (55%)
+            let porcentaje = 0.5;
+            if (objetivo === "bajar") porcentaje = 0.4;
+            if (objetivo === "subir") porcentaje = 0.55;
+            return Math.round((calorias * porcentaje) / 4);
+        }
+
+        function calcular() {
+            const edad = parseInt(document.getElementById('edad').value);
+            const sexo = document.getElementById('sexo').value;
+            const altura = parseInt(document.getElementById('altura').value);
+            const peso = parseFloat(document.getElementById('peso').value);
+            const actividad = document.getElementById('actividad').value;
+            const objetivo = document.getElementById('objetivo').value;
+
+            const pesoIdeal = calcularPesoIdeal(altura, sexo);
+            const calorias = calcularCalorias(peso, altura, edad, sexo, actividad, objetivo);
+            const proteina = calcularProteina(pesoIdeal, objetivo);
+            const carbohidratos = calcularCarbohidratos(calorias, objetivo);
+
+            document.getElementById('objetivoTexto').textContent = objetivoTextos[objetivo];
+            document.getElementById('pesoIdeal').textContent = pesoIdeal;
+            document.getElementById('calorias').textContent = calorias;
+            document.getElementById('proteina').textContent = proteina;
+            document.getElementById('carbohidratos').textContent = carbohidratos;
+
+            document.getElementById('results').style.display = "block";
+            mostrarMenu(objetivo);
+        }
+
+        function mostrarMenu(objetivo) {
+            document.getElementById('menuSemana').style.display = "block";
+            const menuDiv = document.getElementById('menuCards');
+            menuDiv.innerHTML = "";
+            const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+            let menu = platos;
+            if (objetivo === "subir") menu = platosSubir;
+            if (objetivo === "bajar") menu = platosBajar;
+            for (let i=0; i<7; i++) {
+                const card = document.createElement('div');
+                card.className = "card";
+                card.innerHTML = `
+                  <div class="dias">${dias[i]}</div>
+                  <strong>Desayuno:</strong> ${menu.desayuno[i]}<br>
+                  <strong>Almuerzo:</strong> ${menu.almuerzo[i]}<br>
+                  <strong>Cena:</strong> ${menu.cena[i]}
+                `;
+                menuDiv.appendChild(card);
+            }
+        }
+    </script>
+</body>
+</html>
